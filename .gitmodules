@@ -1,0 +1,3 @@
+[submodule "metagraph"]
+	path = metagraph
+	url = git@github.com:ratschlab/metagraph.git
