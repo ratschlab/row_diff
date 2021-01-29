@@ -73,43 +73,68 @@ done
 
 
 DEPTH=100
+THREADS=72
+DIR=~/metagenome/data/mantis/subsets/mtg
+METAGRAPH=~/projects/projects2014-metagenome/metagraph/build_release/metagraph
 for N in {1..10}; do
-    rm -r ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k;
-    mkdir ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k;
-    ln -s ~/metagenome/data/mantis/subsets/mtg/graph_primary_subset_${N}k.dbg \
-          ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/graph.dbg;
-    bsub -J "rd_${DEPTH}_${N}" \
-         -oo ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}.lsf \
-         -W 20:00 \
-         -n 15 -R "rusage[mem=40000] span[hosts=1]" \
-        "find ~/metagenome/data/mantis/subsets/mtg/cols_${N}k -name \"*.column.annodbg\" \
-            | /usr/bin/time -v ~/projects/projects2014-metagenome/metagraph/build_test/metagraph transform_anno -v \
+    NAME=rd_${DEPTH}d_${N}k_${THREADS}t;
+    RD_DIR=${DIR}/${NAME};
+    rm -r ${RD_DIR};
+    mkdir ${RD_DIR};
+    ln -s ${DIR}/graph_primary_subset_${N}k.dbg \
+          ${RD_DIR}/graph.dbg;
+    bsub -J "${NAME}" \
+         -oo ${DIR}/logs/${NAME}.lsf \
+         -W 10:00 \
+         -n 36 -R "rusage[mem=19000] span[hosts=1] select[model==XeonGold_6140]" \
+        "find ${DIR}/cols_${N}k -name \"*.column.annodbg\" \
+            | /usr/bin/time -v $METAGRAPH transform_anno -v \
                 --anno-type row_diff \
                 --max-path-length $DEPTH \
-                --mem-cap-gb 500 \
-                --parallel 30 \
-                -o ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/out \
-                -i ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/graph.dbg \
-                2>&1 | tee ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}.log"; \
-done
-
-DEPTH=100
-for N in {1..10}; do
-    bsub -J "rd_${DEPTH}_${N}_opt" \
-         -w "rd_${DEPTH}_${N}" \
-         -oo ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_opt.lsf \
-         -W 20:00 \
-         -n 15 -R "rusage[mem=40000] span[hosts=1]" \
-        "find ~/metagenome/data/mantis/subsets/mtg/cols_${N}k -name \"*.column.annodbg\" \
-            | /usr/bin/time -v ~/projects/projects2014-metagenome/metagraph/build_test/metagraph transform_anno -v \
+                --mem-cap-gb 600 \
+                --parallel $THREADS \
+                -o ${RD_DIR}/out \
+                -i ${RD_DIR}/graph.dbg \
+                2>&1 | tee ${DIR}/logs/${NAME}.log";
+    bsub -J "${NAME}_opt" \
+         -w "${NAME}" \
+         -oo ${DIR}/logs/${NAME}_opt.lsf \
+         -W 10:00 \
+         -n 36 -R "rusage[mem=19000] span[hosts=1] select[model==XeonGold_6140]" \
+        "find ${DIR}/cols_${N}k -name \"*.column.annodbg\" \
+            | /usr/bin/time -v $METAGRAPH transform_anno -v \
                 --anno-type row_diff \
                 --max-path-length $DEPTH \
-                --mem-cap-gb 500 \
-                --parallel 30 \
+                --mem-cap-gb 600 \
+                --parallel $THREADS \
                 --optimize \
-                -o ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/out \
-                -i ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/graph.dbg \
-                2>&1 | tee ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_opt.log"; \
+                -o ${RD_DIR}/out \
+                -i ${RD_DIR}/graph.dbg \
+                2>&1 | tee ${DIR}/logs/${NAME}_opt.log"; \
+    bsub -J "${NAME}_multi_brwt" \
+         -w "${NAME}_opt" \
+         -oo ${DIR}/logs/${NAME}_multi_brwt.lsf \
+         -W 10:00 \
+         -n 36 -R "rusage[mem=19000] span[hosts=1] select[model==XeonGold_6140]" \
+        "find ${RD_DIR} -name \"*.row_diff.annodbg\" \
+            | /usr/bin/time -v $METAGRAPH transform_anno -v \
+                --anno-type row_diff_brwt \
+                --greedy \
+                --parallel $THREADS \
+                -o ${DIR}/multi_brwt/${NAME} \
+                --anchors-file ${RD_DIR}/graph.dbg.anchors \
+                2>&1 | tee ${DIR}/logs/${NAME}_multi_brwt.log"; \
+    bsub -J "${NAME}_multi_brwt_relax" \
+         -w "${NAME}_multi_brwt" \
+         -oo ${DIR}/logs/${NAME}_multi_brwt_relax.lsf \
+         -W 10:00 \
+         -n 36 -R "rusage[mem=19000] span[hosts=1] select[model==XeonGold_6140]" \
+        "/usr/bin/time -v $METAGRAPH relax_brwt -v \
+                --relax-arity 20 \
+                --parallel $THREADS \
+                -o ${DIR}/multi_brwt/${NAME}_relaxed \
+                ${DIR}/multi_brwt/${NAME}.row_diff_brwt.annodbg \
+                2>&1 | tee ${DIR}/logs/${NAME}_multi_brwt_relax.log"; \
 done
 
 
@@ -126,39 +151,6 @@ for N in {1..10}; do
                 -o ~/metagenome/data/mantis/subsets/mtg/row_sparse/rd_${DEPTH}_${N}k \
                 --anchors-file ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/graph.dbg.anchors \
                 2>&1 | tee ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_to_row_sparse.log"; \
-done
-
-
-DEPTH=100
-for N in {1..10}; do
-    bsub -J "rd_${DEPTH}_${N}_multi_brwt" \
-         -w "rd_${DEPTH}_${N}_opt" \
-         -oo ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_to_multi_brwt.lsf \
-         -W 20:00 \
-         -n 15 -R "rusage[mem=21000] span[hosts=1]" \
-        "find ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k -name \"*.row_diff.annodbg\" \
-            | /usr/bin/time -v ~/projects/projects2014-metagenome/metagraph/build_test/metagraph transform_anno -v \
-                --anno-type row_diff_brwt \
-                --greedy \
-                --parallel 30 \
-                -o ~/metagenome/data/mantis/subsets/mtg/multi_brwt/rd_${DEPTH}_${N}k \
-                --anchors-file ~/metagenome/data/mantis/subsets/mtg/rd_${DEPTH}_${N}k/graph.dbg.anchors \
-                2>&1 | tee ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_to_multi_brwt.log"; \
-done
-
-DEPTH=100
-for N in {1..10}; do
-    bsub -J "rd_${DEPTH}_${N}_multi_brwt_relax" \
-         -w "rd_${DEPTH}_${N}_multi_brwt" \
-         -oo ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_to_multi_brwt_relax.lsf \
-         -W 20:00 \
-         -n 15 -R "rusage[mem=21000] span[hosts=1]" \
-        "/usr/bin/time -v ~/projects/projects2014-metagenome/metagraph/build_test/metagraph relax_brwt -v \
-                --relax-arity 20 \
-                --parallel 30 \
-                -o ~/metagenome/data/mantis/subsets/mtg/multi_brwt/rd_${DEPTH}_${N}k_relaxed \
-                ~/metagenome/data/mantis/subsets/mtg/multi_brwt/rd_${DEPTH}_${N}k.row_diff_brwt.annodbg \
-                2>&1 | tee ~/metagenome/data/mantis/subsets/mtg/logs/graph_primary_subset_${N}k_rd_${DEPTH}_to_multi_brwt_relax.log"; \
 done
 
 
