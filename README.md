@@ -7,4 +7,4 @@ See files
 * [row_diff.hpp](https://github.com/ratschlab/metagraph/tree/b78c39c9e51c40f409aa93478bb645fe4b239bd3/metagraph/src/annotation/binary_matrix/row_diff/row_diff.hpp),
 * [row_diff.cpp](https://github.com/ratschlab/metagraph/tree/b78c39c9e51c40f409aa93478bb645fe4b239bd3/metagraph/src/annotation/binary_matrix/row_diff/row_diff.cpp),
 * [row_diff_builder.hpp](https://github.com/ratschlab/metagraph/tree/b78c39c9e51c40f409aa93478bb645fe4b239bd3/metagraph/src/annotation/row_diff_builder.hpp),
-* [row_diff_builder.hpp](https://github.com/ratschlab/metagraph/tree/b78c39c9e51c40f409aa93478bb645fe4b239bd3/metagraph/src/annotation/row_diff_builder.cpp).
+* [row_diff_builder.cpp](https://github.com/ratschlab/metagraph/tree/b78c39c9e51c40f409aa93478bb645fe4b239bd3/metagraph/src/annotation/row_diff_builder.cpp).
